@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -59,6 +60,7 @@ class _MyHomePageState extends State<MyHomePage>
     );
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
     _controller.forward();
+    _loadState();
   }
 
   @override
@@ -67,10 +69,25 @@ class _MyHomePageState extends State<MyHomePage>
     super.dispose();
   }
 
+  Future<void> _loadState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _counter = prefs.getInt('counter') ?? 0;
+      _initialImage = prefs.getBool('imageState') ?? true;
+    });
+  }
+
+  Future<void> _saveState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('counter', _counter);
+    await prefs.setBool('imageState', _initialImage);
+  }
+
   void _incrementCounter() {
     setState(() {
       _counter++;
     });
+    _saveState();
   }
 
   void _toggleImage() {
@@ -79,14 +96,56 @@ class _MyHomePageState extends State<MyHomePage>
         _initialImage = !_initialImage;
       });
       _controller.forward();
+      _saveState();
     });
+  }
+
+  void _resetApp() async {
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'Confirm Reset',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        content: Text(
+          'Do you really want to reset the app?',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      setState(() {
+        _counter = 0;
+        _initialImage = true;
+      });
+      _controller.forward();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Counter & Image Toggle"),
+        title: const Text("Flutter Application"),
       ),
       body: Center(
         child: Column(
@@ -121,6 +180,14 @@ class _MyHomePageState extends State<MyHomePage>
             ElevatedButton(
               onPressed: widget.toggleTheme,
               child: const Text("Toggle Theme"),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _resetApp,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[300],
+              ),
+              child: const Text("Reset"),
             ),
           ],
         ),
